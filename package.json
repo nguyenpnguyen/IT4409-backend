@@ -1,0 +1,27 @@
+{
+  "name": "it4409-backend",
+  "version": "1.0.0",
+  "description": "IT4409-backend",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nguyenpnguyen/IT4409-backend.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nguyenpnguyen/IT4409-backend/issues"
+  },
+  "homepage": "https://github.com/nguyenpnguyen/IT4409-backend#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.11.3"
+  }
+}

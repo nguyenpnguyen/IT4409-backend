@@ -260,31 +260,31 @@ router.get(
   loadUser,
   (req, res) => {
     // bỏ roles đã bị xoá nhưng user vẫn còn giữ id
-    const userRoles = req.target.roles.filter((r) => r && r.code)
+    const userRoles = req.target.roles.filter((r) => r && r.code);
     const data = userRoles.map(roleSummary);
     res.json({ data, meta: { totalItems: data.length } });
   },
 );
 
+// PUT /users/:userId/roles/:roleId — idempotent
 router.put(
   "/:userId/roles/:roleId",
   requirePermission("roles:assign"),
   loadUser,
   loadRole,
   async (req, res) => {
-    const missing = missingPermissions(req.userRole.permissions, req.permissions);
+    const missing = missingPermissions(req.role.permissions, req.permissions);
     if (missing.length)
       return fail(
         res,
         403,
         "PRIVILEGE_ESCALATION",
-        `Không thể gán role '${req.userRole.code}' vì bạn không có quyền: ${missing.join(", ")}.`,
+        `Không thể gán role '${req.role.code}' vì bạn không có quyền: ${missing.join(", ")}.`,
       );
-    // update user role
     await User.updateOne(
       { _id: req.target._id },
-      { $addToSet: { roles: req.userRole._id } },
-    );
+      { $addToSet: { roles: req.role._id } },
+    ); // không tạo bản trùng
     res.status(204).end();
   },
 );
@@ -303,7 +303,7 @@ router.delete(
         res,
         403,
         "SELF_ACTION_FORBIDDEN",
-        "Không thể tự gỡ vai trò của chính mình.",
+        "Không thể tự gỡ role của chính mình.",
       );
     }
     // BR-02: chỉ gỡ được role mà mình có đủ mọi quyền của nó
@@ -313,7 +313,7 @@ router.delete(
         res,
         403,
         "PRIVILEGE_ESCALATION",
-        `Không thể gỡ role '${role.code}' vì bạn không có quyền: ${missing.join(", ")}.`,
+        `Không thể gỡ role '${role.code}' vì không có quyền: ${missing.join(", ")}.`,
       );
     }
     // BR-04: không gỡ super-admin khỏi super-admin active cuối cùng

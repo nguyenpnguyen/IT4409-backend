@@ -40,9 +40,9 @@ async function loadUser(req, res, next) {
 // TODO: loadRole tương tự, trả 404 ROLE_NOT_FOUND
 async function loadRole(req, res, next) {
   const { roleId } = req.params;
-  const role = isObjectId(roleId) ? await Role.findOne({ _id: roleId }) : null;
+  const role = isObjectId(roleId) ? await Role.findById(roleId) : null;
   if (!role) return fail(res, 404, "ROLE_NOT_FOUND", "Không tìm thấy role.");
-  req.target = role;
+  req.userRole = role;
   next();
 }
 
@@ -170,7 +170,59 @@ router.patch(
   requirePermission("users:update"),
   loadUser,
   async (req, res) => {
-    /* 2.5 */
+    const body = req.body || {};
+    const user = req.target;
+    // 1. Allow-list
+    const details = notAllowedFields(body, [
+      "fullName",
+      "phone",
+      "email",
+      "status",
+    ]);
+    // 2. status chỉ nhận active | locked
+    if ("status" in body && !["active", "locked"].includes(body.status))
+      details.push(
+        detail("status", "INVALID_VALUE", "status phải là active hoặc locked."),
+      );
+    if (details.length)
+      return fail(
+        res,
+        400,
+        "VALIDATION_ERROR",
+        "Dữ liệu đầu vào không hợp lệ.",
+        details,
+      );
+    // 3. Chuyển sang locked: không tự khóa (BR-03), giữ super-admin cuối (BR-04)
+    if (body.status === "locked" && user.status !== "locked") {
+      if (String(user._id) === String(req.user._id))
+        return fail(
+          res,
+          403,
+          "SELF_ACTION_FORBIDDEN",
+          "Không thể tự khóa tài khoản của mình.",
+        );
+      if (await isLastSuperAdmin(user))
+        return fail(
+          res,
+          409,
+          "LAST_SUPER_ADMIN",
+          "Không thể khóa super-admin active cuối cùng.",
+        );
+    }
+    // 4. Email trùng với người khác -> 409
+    if (
+      body.email &&
+      (await User.exists({
+        _id: { $ne: user._id },
+        email: String(body.email).trim().toLowerCase(),
+      }))
+    )
+      return fail(res, 409, "EMAIL_ALREADY_EXISTS", "Email đã được sử dụng.");
+    // 5. Chỉ gán trường có trong body; save() chạy lại validator của schema
+    for (const k of ["fullName", "phone", "email", "status"])
+      if (k in body) user[k] = body[k];
+    await user.save();
+    res.json(userView(user));
   },
 );
 
@@ -179,7 +231,26 @@ router.delete(
   requirePermission("users:delete"),
   loadUser,
   async (req, res) => {
-    /* 2.6 */
+    const user = req.target;
+    // Không tự xóa (BR-03), giữ super-admin cuối (BR-04)
+    if (String(user._id) === String(req.user._id))
+      return fail(
+        res,
+        403,
+        "SELF_ACTION_FORBIDDEN",
+        "Không thể tự xóa tài khoản của mình.",
+      );
+    if (await isLastSuperAdmin(user))
+      return fail(
+        res,
+        409,
+        "LAST_SUPER_ADMIN",
+        "Không thể xóa super-admin active cuối cùng.",
+      );
+    // Xóa mềm
+    user.status = "deleted";
+    await user.save();
+    res.status(204).end();
   },
 );
 
@@ -188,7 +259,10 @@ router.get(
   requirePermission("users:read"),
   loadUser,
   (req, res) => {
-    /* TODO */
+    // bỏ roles đã bị xoá nhưng user vẫn còn giữ id
+    const userRoles = req.target.roles.filter((r) => r && r.code)
+    const data = userRoles.map(roleSummary);
+    res.json({ data, meta: { totalItems: data.length } });
   },
 );
 
@@ -198,7 +272,20 @@ router.put(
   loadUser,
   loadRole,
   async (req, res) => {
-    /* 2.7 */
+    const missing = missingPermissions(req.userRole.permissions, req.permissions);
+    if (missing.length)
+      return fail(
+        res,
+        403,
+        "PRIVILEGE_ESCALATION",
+        `Không thể gán role '${req.userRole.code}' vì bạn không có quyền: ${missing.join(", ")}.`,
+      );
+    // update user role
+    await User.updateOne(
+      { _id: req.target._id },
+      { $addToSet: { roles: req.userRole._id } },
+    );
+    res.status(204).end();
   },
 );
 
@@ -208,7 +295,39 @@ router.delete(
   loadUser,
   loadRole,
   async (req, res) => {
-    /* 2.7 */
+    const user = req.target;
+    const role = req.userRole;
+    // BR-03: không được tự gỡ role của chính mình
+    if (String(user._id) === String(req.user._id)) {
+      return fail(
+        res,
+        403,
+        "SELF_ACTION_FORBIDDEN",
+        "Không thể tự gỡ vai trò của chính mình.",
+      );
+    }
+    // BR-02: chỉ gỡ được role mà mình có đủ mọi quyền của nó
+    const missing = missingPermissions(role.permissions, req.permissions);
+    if (missing.length > 0) {
+      return fail(
+        res,
+        403,
+        "PRIVILEGE_ESCALATION",
+        `Không thể gỡ role '${role.code}' vì bạn không có quyền: ${missing.join(", ")}.`,
+      );
+    }
+    // BR-04: không gỡ super-admin khỏi super-admin active cuối cùng
+    if (role.code === "super-admin" && (await isLastSuperAdmin(user))) {
+      return fail(
+        res,
+        409,
+        "LAST_SUPER_ADMIN",
+        "Không thể gỡ vai trò super-admin của super-admin cuối cùng.",
+      );
+    }
+    // xoá role
+    await User.updateOne({ _id: user._id }, { $pull: { roles: role._id } });
+    res.status(204).end();
   },
 );
 

@@ -40,7 +40,15 @@ router.post("/auth/tokens", async (req, res) => {
       "INVALID_CREDENTIALS",
       "Email hoặc mật khẩu không đúng.",
     );
-  // TODO: tài khoản locked -> 403 ACCOUNT_LOCKED
+  // tài khoản locked -> 403 ACCOUNT_LOCKED
+  if (user.status == "locked")
+    return fail(
+      res,
+      403,
+      "ACCOUNT_LOCKED",
+      "Tài khoản đã bị khoá."
+    );
+
   user.lastLoginAt = new Date();
   await user.save();
   const accessToken = jwt.sign(

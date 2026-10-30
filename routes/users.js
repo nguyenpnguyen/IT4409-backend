@@ -59,7 +59,14 @@ router.get("/", requirePermission("users:read"), async (req, res) => {
     details.push(
       detail("status", "INVALID_VALUE", "status phải là active hoặc locked."),
     );
-  // TODO: kiểm tra roleId (ObjectId hợp lệ) và q (tối thiểu 2 ký tự)
+  if (q.roleId && !isObjectId(q.roleId))
+    details.push(
+      detail("roleId", "INVALID_VALUE", "roleId không phải ObjectId hợp lệ."),
+    );
+  if (q.q && String(q.q).trim().length < 2)
+    details.push(
+      detail("q", "TOO_SHORT", "Từ khóa tìm kiếm tối thiểu 2 ký tự."),
+    );
   if (details.length)
     return fail(
       res,

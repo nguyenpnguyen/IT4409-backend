@@ -156,7 +156,17 @@ router.post("/", requirePermission("users:create"), async (req, res) => {
         "ROLE_NOT_FOUND",
         "Có role không tồn tại trong roleIds.",
       );
-    // TODO: dùng missingPermissions(...) -> 403 PRIVILEGE_ESCALATION
+    const missing = missingPermissions(
+      roles.flatMap((r) => r.permissions),
+      req.permissions,
+    );
+    if (missing.length)
+      return fail(
+        res,
+        403,
+        "PRIVILEGE_ESCALATION",
+        `Không thể gán role vì không có quyền: ${missing.join(", ")}.`,
+      );
   } else {
     roles = await Role.find({ code: "member" }); // mặc định
   }

@@ -118,7 +118,17 @@ router.post("/", requirePermission("users:create"), async (req, res) => {
         "Mật khẩu tối thiểu 8 ký tự, có chữ hoa, chữ số và ký tự đặc biệt.",
       ),
     );
-  // TODO: roleIds (nếu có) phải là mảng ObjectId hợp lệ
+  if (
+    body.roleIds !== undefined &&
+    (!Array.isArray(body.roleIds) || !body.roleIds.every(isObjectId))
+  )
+    details.push(
+      detail(
+        "roleIds",
+        "INVALID_VALUE",
+        "roleIds phải là mảng ObjectId hợp lệ.",
+      ),
+    );
   if (details.length)
     return fail(
       res,

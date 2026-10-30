@@ -59,8 +59,11 @@ app.use((err, req, res, next) => {
     );
   }
   if (err.code === 11000) {
-    // TODO: xác định trường bị trùng từ err.keyPattern -> EMAIL_ALREADY_EXISTS /
-    ROLE_CODE_EXISTS;
+    const key = err.keyPattern || {};
+    if (key.email)
+      return fail(res, 409, "EMAIL_ALREADY_EXISTS", "Email đã được sử dụng.");
+    if (key.code)
+      return fail(res, 409, "ROLE_CODE_EXISTS", "Mã role đã tồn tại.");
     return fail(res, 409, "CONFLICT", "Dữ liệu bị trùng.");
   }
   console.error(err); // chi tiết chỉ ghi log phía server

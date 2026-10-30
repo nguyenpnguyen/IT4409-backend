@@ -37,7 +37,7 @@ const ROLES = [
   // TODO: user-manager, auditor, member theo ma trận ở mục II.1.5
   {
     code: "user-manager",
-    name: "Quản lý",
+    name: "Quản lý người dùng",
     isSystem: true,
     permissions: PERMISSIONS.filter((p) => userManagerPermissions.includes(p.code)).map((p) => p.code),
   },
@@ -52,6 +52,14 @@ const ROLES = [
     name: "Người dùng",
     isSystem: true,
     permissions: [],
+  },
+  // Vai trò tự tạo — isSystem: false xóa / đổi bộ quyền được
+  {
+    code: "helpdesk",
+    name: "Hỗ trợ kỹ thuật",
+    description: "Tra cứu tài khoản, mở khóa và cập nhật thông tin liên hệ cho người dùng",
+    isSystem: false,
+    permissions: ["users:read", "users:update", "roles:read"],
   },
 ];
 
@@ -73,7 +81,7 @@ const USERS = [
   },
   {
     email: "20252092M@sis.hust.edu.vn",
-    fullName: "Nguyễn Đức Huy",
+    fullName: "Nguyễn Đức Minh",
     phone: "+84987654321",
     password: "Auditor@2026",
     roles: ["auditor"],
@@ -83,7 +91,7 @@ const USERS = [
     fullName: "Lê Hữu Thành",
     phone: "+84876543210",
     password: "Member@2026",
-    roles: ["member"],
+    roles: ["member", "helpdesk"],
   },
 ];
 
